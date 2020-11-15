@@ -9,8 +9,13 @@ import api from '../../services/api';
 import Header from '../../components/Header';
 
 import formatValue from '../../utils/formatValue';
+import formatDate from '../../utils/formatDate';
 
 import { Container, CardContainer, Card, TableContainer } from './styles';
+
+type NumberMap<T> = {
+  [P in keyof T]: number;
+};
 
 interface Transaction {
   id: string;
@@ -20,7 +25,7 @@ interface Transaction {
   formattedDate: string;
   type: 'income' | 'outcome';
   category: { title: string };
-  created_at: Date;
+  created_at: string;
 }
 
 interface Balance {
@@ -29,16 +34,41 @@ interface Balance {
   total: string;
 }
 
+interface TransactionsResponse {
+  transactions: Array<Omit<Transaction, 'formattedValue' | 'formattedDate'>>;
+  balance: NumberMap<Balance>;
+}
+
 const Dashboard: React.FC = () => {
-  // const [transactions, setTransactions] = useState<Transaction[]>([]);
-  // const [balance, setBalance] = useState<Balance>({} as Balance);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [balance, setBalance] = useState<Balance>({} as Balance);
 
   useEffect(() => {
-    async function loadTransactions(): Promise<void> {
-      // TODO
-    }
+    (async () => {
+      const { data } = await api.get<TransactionsResponse>('transactions');
 
-    loadTransactions();
+      const {
+        transactions: incomingTransactions,
+        balance: incomingBalance,
+      } = data;
+
+      const treatedTransactions = incomingTransactions.map(
+        incomingTransaction => ({
+          ...incomingTransaction,
+          formattedValue: formatValue(incomingTransaction.value),
+          formattedDate: formatDate(incomingTransaction.created_at),
+        }),
+      );
+
+      const treatedBalance: Balance = {
+        income: formatValue(incomingBalance.income),
+        outcome: formatValue(incomingBalance.outcome),
+        total: formatValue(incomingBalance.total),
+      };
+
+      setTransactions(treatedTransactions);
+      setBalance(treatedBalance);
+    })();
   }, []);
 
   return (
@@ -51,21 +81,21 @@ const Dashboard: React.FC = () => {
               <p>Entradas</p>
               <img src={income} alt="Income" />
             </header>
-            <h1 data-testid="balance-income">R$ 5.000,00</h1>
+            <h1 data-testid="balance-income">{balance.income}</h1>
           </Card>
           <Card>
             <header>
               <p>Saídas</p>
               <img src={outcome} alt="Outcome" />
             </header>
-            <h1 data-testid="balance-outcome">R$ 1.000,00</h1>
+            <h1 data-testid="balance-outcome">{balance.outcome}</h1>
           </Card>
           <Card total>
             <header>
               <p>Total</p>
               <img src={total} alt="Total" />
             </header>
-            <h1 data-testid="balance-total">R$ 4000,00</h1>
+            <h1 data-testid="balance-total">{balance.total}</h1>
           </Card>
         </CardContainer>
 
